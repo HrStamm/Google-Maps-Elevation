@@ -48,3 +48,19 @@ def load_results():
         for row in reader:
             results.append(row)
     return results
+
+def get_cached_result(lat, lng, tolerance=0.0001):
+    """
+    Checks if a result for the given coordinates already exists in the cache.
+    tolerance: how close the coordinates must be to be considered a match.
+    """
+    results = load_results()
+    for row in results:
+        try:
+            r_lat = float(row['lat'])
+            r_lng = float(row['lng'])
+            if abs(r_lat - lat) < tolerance and abs(r_lng - lng) < tolerance:
+                return float(row['temp'])
+        except (ValueError, KeyError):
+            continue
+    return None

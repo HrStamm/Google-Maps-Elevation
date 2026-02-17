@@ -1,15 +1,23 @@
 import requests
-from src.data.data_manager import is_valid_coordinate
+from src.data.data_manager import is_valid_coordinate, get_cached_result, save_result
 
-def fetch_temperature(lat, lng):
+def fetch_temperature(lat, lng, search_method="unknown", use_cache=True):
     """
     Fetches the current temperature for a given latitude and longitude.
-    Uses the Open-Meteo API (free, no API key required).
+    Checks the local cache first unless use_cache is False.
     """
     if not is_valid_coordinate(lat, lng):
         print(f"Error: Invalid coordinates ({lat}, {lng}). Must be -90 <= lat <= 90 and -180 <= lng <= 180.")
         return None
+
+    # 1. Check Cache
+    if use_cache:
+        cached_temp = get_cached_result(lat, lng)
+        if cached_temp is not None:
+            print(f"Cache hit for ({lat}, {lng}): {cached_temp}°C")
+            return cached_temp
         
+    # 2. If not in cache, fetch from API
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": lat,
@@ -23,7 +31,13 @@ def fetch_temperature(lat, lng):
         data = response.json()
         
         if "current" in data:
-            return data["current"]["temperature_2m"]
+            temp = data["current"]["temperature_2m"]
+            
+            # 3. Save to Cache
+            save_result(lat, lng, temp, search_method)
+            print(f"Fetched and cached ({lat}, {lng}): {temp}°C")
+            
+            return temp
         return None
     except Exception as e:
         print(f"Error fetching weather data: {e}")

@@ -10,8 +10,8 @@ The goal is to use **Bayesian Optimization (BO)** with a **Gaussian Process (GP)
 
 - [x] **Standardized Data Format** (Data/Scientist): **Confirmed!** Using `src/data/results.csv` with headers: `timestamp, lat, lng, temp, search_method`.
 - [x] **Coordinate Strategy** (All): **Confirmed!** We use decimal (latitude, longitude). Example: Copenhagen is `(55.67, 12.56)`.
-- [ ] **Data Caching System** (Data Engineer): Implement the logic in `src/data/data_manager.py` to automatically save every hit to the CSV.
-- [ ] **Environment Sync** (All): Ensure everyone has `uv` installed and can run `uv run main.py`.
+- [x] **Data Caching System** (Data Engineer): **Implemented!** `fetch_temperature` now automatically checks `results.csv` before calling the API.
+- [x] **Environment Sync** (All): **Ready!** Everyone should run `git pull` and `uv sync`.
 
 ---
 
