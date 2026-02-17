@@ -1,0 +1,18 @@
+Model Information
+
+Input:
+- Temperature is standardized to [0, 1]
+- Axis bounds (so the model knows where it is allowed to sample)
+
+Internal:
+- Gaussian Process with Squared Exponential kernel
+
+Output:
+- Guesses and their order
+- Best guess
+
+
+The following variables should be placed in a separate configuration file so they can be modified there:
+- Kernel Variance
+- Noise parameter
+- Number of allowed guesses
