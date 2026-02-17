@@ -166,6 +166,7 @@ dependencies = [
     { name = "cookiecutter" },
     { name = "googlemaps" },
     { name = "python-dotenv" },
+    { name = "requests" },
 ]
 
 [package.metadata]
@@ -173,6 +174,7 @@ requires-dist = [
     { name = "cookiecutter", specifier = ">=2.6.0" },
     { name = "googlemaps", specifier = ">=4.10.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
+    { name = "requests", specifier = ">=2.32.5" },
 ]
 
 [[package]]

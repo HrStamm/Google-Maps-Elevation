@@ -1,18 +1,20 @@
-from google_maps_api import fetch_elevation
+from src.data.google_maps_api import fetch_elevation
+from src.data.weather_api import fetch_temperature
 
 def main():
-    # Example: Fetch elevation for Copenhagen (lat: 55.6761, lng: 12.5683)
-    copenhagen = (55.106423, 13.489815)
+    # Example coordinates (somewhere in the Sahara)
+    coords = (25.0, 15.0)
     
-    try:
-        elevation = fetch_elevation(*copenhagen)
-        if elevation is not None:
-            print(f"Elevation of Copenhagen: {elevation:.2f} meters")
-        else:
-            print("Could not fetch elevation.")
-    except Exception as e:
-        print(f"Error: {e}")
-        print("\nNote: Make sure you have set GOOGLE_MAPS_API_KEY in your .env file.")
+    print("--- First evaluation (API call) ---")
+    temp1 = fetch_temperature(*coords, search_method="initial_test")
+    
+    print("\n--- Second evaluation (Should be a CACHE HIT) ---")
+    temp2 = fetch_temperature(*coords, search_method="initial_test")
+    
+    if temp1 is not None:
+        print(f"\nFinal result: {temp1}°C")
+    else:
+        print("\nCould not fetch weather data.")
 
 if __name__ == "__main__":
     main()
