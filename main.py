@@ -2,7 +2,7 @@ from google_maps_api import fetch_elevation
 
 def main():
     # Example: Fetch elevation for Copenhagen (lat: 55.6761, lng: 12.5683)
-    copenhagen = (55.106423, 13.489815)
+    copenhagen = (55.106423, 12.489815)
     
     try:
         elevation = fetch_elevation(*copenhagen)
