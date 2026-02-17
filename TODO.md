@@ -19,9 +19,9 @@ The goal is to use **Bayesian Optimization (BO)** with a **Gaussian Process (GP)
 
 ### 1. Data & Infrastructure (The Data Engineer)
 *Focus: API reliability, caching, and data collection.*
-- [ ] **API Hardening**: Enhance `weather_api.py` with retries and better error handling for ocean/invalid coordinates.
-- [ ] **Data Caching**: Implement a local caching system (CSV or SQLite) to avoid redundant and unnecessary API calls.
-- [x] **Coordinate Validation**: Implement logic to ensure sampled coordinates stay within valid global bounds (-90 to 90 lat, -180 to 180 lng).
+- [x] **API Hardening**: Enhanced `weather_api.py` with retries, exponential backoff, and timeouts for better reliability.
+- [x] **Data Caching**: Automated system implemented in `src/data/data_manager.py` and `src/data/weather_api.py`.
+- [x] **Coordinate Validation**: Checks implemented to ensure lat/lng are within valid global bounds.
 
 ### 2. Bayesian Optimization Logic (The ML Engineer)
 *Focus: GP modeling and acquisition strategy.*
