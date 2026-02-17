@@ -8,4 +8,5 @@ dependencies = [
     "googlemaps>=4.10.0",
     "python-dotenv>=1.2.1",
     "cookiecutter>=2.6.0",
+    "requests>=2.32.5",
 ]
