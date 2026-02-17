@@ -1,10 +1,15 @@
 import requests
+from src.data.data_manager import is_valid_coordinate
 
 def fetch_temperature(lat, lng):
     """
     Fetches the current temperature for a given latitude and longitude.
     Uses the Open-Meteo API (free, no API key required).
     """
+    if not is_valid_coordinate(lat, lng):
+        print(f"Error: Invalid coordinates ({lat}, {lng}). Must be -90 <= lat <= 90 and -180 <= lng <= 180.")
+        return None
+        
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": lat,
