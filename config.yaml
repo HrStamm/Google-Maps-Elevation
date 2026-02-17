@@ -1,0 +1,22 @@
+# Configuration file for Bayesian Optimization model
+# This file contains all hyperparameters for the Gaussian Process model
+
+# Gaussian Process Kernel Parameters
+kernel:
+  variance: 1.0           # Kernel variance (signal variance)
+  lengthscale: 10.0       # Lengthscale parameter (controls smoothness)
+  noise: 0.01             # Noise parameter (observation noise)
+
+# Bayesian Optimization Parameters
+optimization:
+  n_guesses: 20           # Number of allowed guesses
+  exploration: 2.0        # Exploration parameter (higher = more exploration)
+
+# Map Bounds (latitude, longitude)
+# Latitude: -90 to 90 (South to North)
+# Longitude: -180 to 180 (West to East)
+bounds:
+  lat_min: -90
+  lat_max: 90
+  lng_min: -180
+  lng_max: 180

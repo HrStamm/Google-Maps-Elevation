@@ -1,20 +1,42 @@
-from src.data.google_maps_api import fetch_elevation
-from src.data.weather_api import fetch_temperature
+"""
+Main script for running Bayesian Optimization to find maximum temperature.
+
+This script demonstrates the use of the BayesianOptimizer class to find
+the location with the highest temperature on a world map.
+"""
+
+from src.models.bayesian_optimizer import BayesianOptimizer
+from src.visualization.visualize import visualize_results
+
 
 def main():
-    # Example coordinates (somewhere in the Sahara)
-    coords = (25.0, 15.0)
+    """
+    Run Bayesian Optimization to find the location with maximum temperature.
+    """
+    print("="*70)
+    print("Bayesian Optimization for Maximum Temperature Search")
+    print("="*70)
+    print()
     
-    print("--- First evaluation (API call) ---")
-    temp1 = fetch_temperature(*coords, search_method="initial_test")
+    # Initialize the optimizer (loads config from config.yaml)
+    optimizer = BayesianOptimizer(config_path="config.yaml")
     
-    print("\n--- Second evaluation (Should be a CACHE HIT) ---")
-    temp2 = fetch_temperature(*coords, search_method="initial_test")
+    # Optional: Provide initial guesses (if you have domain knowledge)
+    # For example, we know deserts tend to be hot:
+    # - Sahara Desert: (25.0, 15.0)
+    # - Arabian Desert: (24.0, 45.0)
+    # - Death Valley: (36.5, -117.0)
+    initial_guesses = [
+        (25.0, 15.0),  # Sahara Desert region
+    ]
     
-    if temp1 is not None:
-        print(f"\nFinal result: {temp1}°C")
-    else:
-        print("\nCould not fetch weather data.")
+    # Run the optimization
+    results = optimizer.optimize(initial_guesses=initial_guesses)
+    
+    # Visualize results
+    visualize_results(results, show_map=True)
+
 
 if __name__ == "__main__":
     main()
+

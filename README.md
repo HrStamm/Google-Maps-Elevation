@@ -1,7 +1,76 @@
 Google-maps-Elevation-Predictor
 ==============================
 
-A short description of the project.
+A Bayesian Optimization project that uses Gaussian Process models to find the location with the highest temperature on a world map.
+
+## Overview
+
+This project implements Bayesian Optimization with a Gaussian Process (GP) using a Squared Exponential kernel to efficiently search for the maximum temperature location on Earth. The model makes a limited number of guesses and uses the Upper Confidence Bound (UCB) acquisition function to balance exploration and exploitation.
+
+## Features
+
+- **Gaussian Process Model**: Uses Squared Exponential kernel for smooth spatial predictions
+- **Bayesian Optimization**: Efficiently searches for the maximum temperature with limited samples
+- **Temperature API Integration**: Fetches real-time temperature data from Open-Meteo API
+- **Caching System**: Stores previous queries to avoid redundant API calls
+- **Configurable Parameters**: All hyperparameters are easily adjustable via `config.yaml`
+
+## Quick Start
+
+1. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Configure the model** (optional):
+   Edit `config.yaml` to adjust:
+   - Kernel variance and lengthscale
+   - Noise parameter
+   - Number of allowed guesses
+   - Exploration parameter
+
+3. **Run the optimization**:
+   ```bash
+   python main.py
+   ```
+
+## Configuration
+
+The `config.yaml` file contains all model hyperparameters:
+
+```yaml
+kernel:
+  variance: 1.0           # Signal variance
+  lengthscale: 10.0       # Smoothness parameter
+  noise: 0.01             # Observation noise
+
+optimization:
+  n_guesses: 20           # Number of allowed guesses
+  exploration: 2.0        # Exploration parameter (UCB)
+
+bounds:
+  lat_min: -90
+  lat_max: 90
+  lng_min: -180
+  lng_max: 180
+```
+
+## Model Architecture
+
+The model consists of three main components:
+
+1. **SquaredExponentialKernel**: Implements the RBF kernel for the GP
+2. **GaussianProcessModel**: Handles GP regression with mean and variance predictions
+3. **BayesianOptimizer**: Orchestrates the optimization using UCB acquisition function
+
+### Input
+- Temperature values (standardized to [0, 1])
+- Map bounds (latitude: -90 to 90, longitude: -180 to 180)
+
+### Output
+- All guesses and their order
+- Best temperature found
+- Best location coordinates
 
 Project Organization
 ------------
