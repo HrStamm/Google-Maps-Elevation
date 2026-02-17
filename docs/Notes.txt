@@ -1,4 +1,17 @@
+The repsitory is based on a template so many parts are not filled.
+Get an overview of the structure by reading the README.md. It might not be completely up to date.
+
+
 Model Information
+The model should use Baysian Optimitiation to find the highest Temperature on a world map.
+It gets "x" guesses and gets a standardized value after each guess.
+The map is 2D.
+Read weather_api.py
+Also read main.py.
+The model should use the functions from the seperate file weather_api.py.
+Keep the code simple and the structure clean.
+Remember to use comments throughout the code.
+
 
 Input:
 - Temperature is standardized to [0, 1]
@@ -11,8 +24,12 @@ Output:
 - Guesses and their order
 - Best guess
 
-
-The following variables should be placed in a separate configuration file so they can be modified there:
+Create a config.yaml file whereever it makes the most sense.
+The following variables should be placed in the config.yaml file so they can be modified there:
 - Kernel Variance
 - Noise parameter
 - Number of allowed guesses
+- Lengthscale
+- Exploration
+
+
