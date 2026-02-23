@@ -1,20 +1,24 @@
 from src.data.google_maps_api import fetch_elevation
 from src.data.weather_api import fetch_temperature
+from src.models.train_model import bayesian_optimization_search
 
 def main():
-    # Example coordinates (somewhere in the Sahara)
-    coords = (25.0, 15.0)
+    # Example: Run Bayesian Optimization to find the hottest location
+    print("Running Bayesian Optimization to find the highest temperature...\n")
     
-    print("--- First evaluation (API call) ---")
-    temp1 = fetch_temperature(*coords, search_method="initial_test")
+    # Run the search with 20 iterations for demonstration
+    results = bayesian_optimization_search(n_iterations=20, seed=42)
     
-    print("\n--- Second evaluation (Should be a CACHE HIT) ---")
-    temp2 = fetch_temperature(*coords, search_method="initial_test")
+    # The results contain all the information about the search
+    print("\n" + "=" * 60)
+    print("Search complete!")
+    print("=" * 60)
     
-    if temp1 is not None:
-        print(f"\nFinal result: {temp1}°C")
-    else:
-        print("\nCould not fetch weather data.")
+    if results['best_temperature'] is not None:
+        lat, lng = results['best_location']
+        print(f"\n🔥 Best location found: ({lat:.4f}, {lng:.4f})")
+        print(f"🌡️  Temperature: {results['best_temperature']:.1f}°C")
+        print(f"\n📊 Total guesses: {len(results['guesses'])}")
 
 if __name__ == "__main__":
     main()
