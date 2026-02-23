@@ -1,0 +1,19 @@
+# Configuration for Bayesian Optimization Temperature Search
+
+# Gaussian Process Parameters
+kernel_variance: 1.0        # Variance of the RBF kernel
+lengthscale: 10.0           # Lengthscale for the RBF kernel (controls smoothness)
+noise: 0.1                  # Noise parameter for GP observations
+
+# UCB Acquisition Function
+kappa: 2.0                  # Exploration parameter (higher = more exploration)
+
+# Search Parameters
+n_iterations: 50            # Number of allowed guesses/iterations
+grid_resolution: 20         # Grid points per dimension (x*x = ? points)
+
+# Search Space Bounds
+lat_min: -90.0              # Minimum latitude
+lat_max: 90.0               # Maximum latitude
+lng_min: -180.0             # Minimum longitude
+lng_max: 180.0              # Maximum longitude
