@@ -77,10 +77,18 @@ class BayesianOptimizationSearch:
         K : np.ndarray, shape (n1, n2)
             Kernel matrix.
         """
-        # Compute squared Euclidean distances
+        # Compute squared distances with longitude wraparound
         X1_expanded = X1[:, np.newaxis, :]  # (n1, 1, 2)
         X2_expanded = X2[np.newaxis, :, :]  # (1, n2, 2)
-        sq_dist = np.sum((X1_expanded - X2_expanded) ** 2, axis=2)
+        
+        # Latitude difference (no wraparound)
+        dlat = X1_expanded[:, :, 0] - X2_expanded[:, :, 0]
+        
+        # Longitude difference with wraparound: min(|Δlng|, 360 - |Δlng|)
+        dlng = np.abs(X1_expanded[:, :, 1] - X2_expanded[:, :, 1])
+        dlng = np.minimum(dlng, 360.0 - dlng)
+        
+        sq_dist = dlat ** 2 + dlng ** 2
         
         # RBF kernel
         K = self.kernel_variance * np.exp(-sq_dist / (2 * self.lengthscale ** 2))
@@ -204,6 +212,17 @@ class BayesianOptimizationSearch:
         
         # Evaluate UCB on grid
         ucb_values = self._ucb_acquisition(grid)
+        
+        # Mask out grid points near already-observed locations
+        if len(self.X_observed) > 0:
+            X_obs = np.array(self.X_observed)
+            min_dist_threshold = 2.0  # degrees
+            for obs in X_obs:
+                dlat = grid[:, 0] - obs[0]
+                dlng = np.abs(grid[:, 1] - obs[1])
+                dlng = np.minimum(dlng, 360.0 - dlng)
+                dist = np.sqrt(dlat ** 2 + dlng ** 2)
+                ucb_values[dist < min_dist_threshold] = -np.inf
         
         # Select point with highest UCB
         best_idx = np.argmax(ucb_values)
