@@ -1,17 +1,68 @@
 import pandas as pd
+import numpy as np
 import os
 import webbrowser
 import json
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
 
 # ==============================================================================
-# BO Playback Generator
-# Creates an animated HTML page that replays the Bayesian Optimization process
-# point by point on a dark world map.
+# BO Playback with Dynamic Uncertainty
+# Replays the optimization AND shows the GP uncertainty heatmap evolving
+# at each iteration.
 # ==============================================================================
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DATA_FILE = os.path.join(PROJECT_ROOT, "src", "data", "results.csv")
 OUTPUT_FILE = os.path.join(PROJECT_ROOT, "reports", "playback.html")
+
+TOTAL_BUDGET = 20
+GRID_STEP = 5  # Degrees — finer grid for smoother heatmap
+
+
+def compute_uncertainty_frames(df):
+    """Pre-compute uncertainty grids for every iteration."""
+    lat_grid = np.arange(-82, 82 + GRID_STEP, GRID_STEP)
+    lng_grid = np.arange(-180, 180 + GRID_STEP, GRID_STEP)
+    lng_mesh, lat_mesh = np.meshgrid(lng_grid, lat_grid)
+    grid_points = np.column_stack([lat_mesh.ravel(), lng_mesh.ravel()])
+
+    # Build grid cell metadata (only once)
+    cells = []
+    for i in range(len(lat_grid)):
+        for j in range(len(lng_grid)):
+            cells.append({
+                "lat": float(lat_grid[i]),
+                "lng": float(lng_grid[j]),
+            })
+
+    frames_raw = []
+
+    for step in range(1, len(df) + 1):
+        X = df[["lat", "lng"]].values[:step]
+        y = df["temp"].values[:step]
+
+        kernel = C(1.0) * RBF(length_scale=20.0)
+        gp = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=2, alpha=1.0)
+        gp.fit(X, y)
+
+        _, sigma = gp.predict(grid_points, return_std=True)
+        frames_raw.append(sigma)
+        print(f"  Frame {step}/{len(df)} computed")
+
+    # Global normalization across ALL frames for consistent color scale
+    all_sigma = np.concatenate(frames_raw)
+    s_min, s_max = all_sigma.min(), all_sigma.max()
+
+    frames = []
+    for sigma in frames_raw:
+        if s_max > s_min:
+            sigma_norm = ((sigma - s_min) / (s_max - s_min)).tolist()
+        else:
+            sigma_norm = [0.0] * len(sigma)
+        frames.append([round(v, 3) for v in sigma_norm])
+
+    return cells, frames
 
 
 def generate_playback():
@@ -22,11 +73,11 @@ def generate_playback():
         return None
 
     df = pd.read_csv(DATA_FILE)
-    if len(df) == 0:
-        print("Error: No data.")
+    if len(df) < 2:
+        print("Error: Need at least 2 data points.")
         return None
 
-    # Build the points list in order
+    # Build points
     points = []
     for _, row in df.iterrows():
         points.append({
@@ -38,6 +89,12 @@ def generate_playback():
         })
 
     points_json = json.dumps(points)
+
+    # Pre-compute uncertainty
+    print("Computing uncertainty frames...")
+    cells, frames = compute_uncertainty_frames(df)
+    cells_json = json.dumps(cells)
+    frames_json = json.dumps(frames)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -61,7 +118,6 @@ def generate_playback():
     overflow: hidden;
   }}
 
-  /* ---- Header ---- */
   .header {{
     display: flex;
     justify-content: space-between;
@@ -90,13 +146,8 @@ def generate_playback():
   .stat-value.best {{ color: #ffcc00; }}
   .stat-value.green {{ color: #00ff66; }}
 
-  /* ---- Map ---- */
-  #map {{
-    flex: 1;
-    z-index: 1;
-  }}
+  #map {{ flex: 1; z-index: 1; }}
 
-  /* ---- Controls Bar ---- */
   .controls {{
     display: flex;
     align-items: center;
@@ -141,11 +192,6 @@ def generate_playback():
     box-shadow: 0 0 8px #00ff6688;
   }}
 
-  .speed-label {{
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: #666;
-  }}
   .speed-select {{
     background: #222;
     color: #fff;
@@ -164,24 +210,46 @@ def generate_playback():
     text-align: right;
   }}
 
-  /* ---- Leaflet overrides ---- */
+  .toggle-unc {{
+    font-size: 12px;
+  }}
+  .toggle-unc.on {{ border-color: #ff6600; color: #ff6600; background: #2a1a00; }}
+
   .leaflet-control-attribution {{ display: none !important; }}
   .leaflet-control-zoom {{ display: none !important; }}
 
-  /* ---- Pulse animation for new points ---- */
-  @keyframes pulse {{
-    0% {{ transform: scale(1); opacity: 1; }}
-    50% {{ transform: scale(2.2); opacity: 0.4; }}
-    100% {{ transform: scale(1); opacity: 1; }}
+  .legend {{
+    position: fixed;
+    bottom: 65px;
+    left: 28px;
+    background: #111e;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    z-index: 1001;
+    display: none;
   }}
-  .pulse {{
-    animation: pulse 0.6s ease-out;
+  .legend.visible {{ display: block; }}
+  .legend-title {{ color: #888; margin-bottom: 6px; }}
+  .legend-bar {{
+    width: 120px;
+    height: 10px;
+    border-radius: 3px;
+    background: linear-gradient(to right, #0d004488, #4a0078aa, #b5305aaa, #f7a03caa, #fcffa4aa);
+  }}
+  .legend-labels {{
+    display: flex;
+    justify-content: space-between;
+    color: #666;
+    font-size: 10px;
+    margin-top: 3px;
   }}
 </style>
 </head>
 <body>
 
-<!-- Header -->
 <div class="header">
   <h1>BO Playback: <span>Global Temperature Search</span></h1>
   <div class="stats">
@@ -192,16 +260,23 @@ def generate_playback():
   </div>
 </div>
 
-<!-- Map -->
 <div id="map"></div>
 
-<!-- Controls -->
+<div class="legend" id="legend">
+  <div class="legend-title">GP Uncertainty (σ)</div>
+  <div class="legend-bar"></div>
+  <div class="legend-labels"><span>Low</span><span>High</span></div>
+</div>
+
 <div class="controls">
   <button class="btn" id="btn-play" onclick="togglePlay()">▶ Play</button>
+  <button class="btn" onclick="stepBack()">◀ Prev</button>
+  <button class="btn" onclick="stepForward()">Next ▶</button>
   <button class="btn" onclick="resetPlayback()">⟲ Reset</button>
+  <button class="btn toggle-unc" id="btn-unc" onclick="toggleUncertainty()">σ Off</button>
   <input type="range" class="timeline" id="timeline" min="0" max="{len(points) - 1}" value="0" oninput="seekTo(this.value)">
   <div class="iter-display" id="iter-label">0 / {len(points)}</div>
-  <span class="speed-label">Speed:</span>
+  <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#666;">Speed:</span>
   <select class="speed-select" id="speed" onchange="updateSpeed()">
     <option value="2000">0.5x</option>
     <option value="1000" selected>1x</option>
@@ -212,24 +287,34 @@ def generate_playback():
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-  // ---- Data ----
   const points = {points_json};
+  const cells = {cells_json};
+  const frames = {frames_json};
   const totalPoints = points.length;
+  const gridStep = {GRID_STEP};
 
-  // ---- Map Setup ----
+  const bounds = [
+    [-90, -180], // Southwest coordinates
+    [90, 180]    // Northeast coordinates
+  ];
+
   const map = L.map('map', {{
     center: [20, 0],
     zoom: 2,
     zoomControl: false,
     attributionControl: false,
+    maxBounds: bounds,
+    maxBoundsViscosity: 1.0,  // Makes the bounds completely solid
+    minZoom: 2,               // Prevents zooming out too far
+    maxZoom: 19
   }});
 
   L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}.png', {{
-    subdomains: 'abcd',
+    subdomains: 'abcd', 
     maxZoom: 19,
+    noWrap: true              // Prevents the map from repeating horizontally
   }}).addTo(map);
 
-  // ---- State ----
   let currentIdx = -1;
   let playing = false;
   let interval = null;
@@ -237,6 +322,30 @@ def generate_playback():
   let markers = [];
   let bestTemp = -Infinity;
   let bestMarker = null;
+  let showUnc = false;
+  let uncRects = [];
+
+  // Inferno-like palette
+  function infernoColor(t) {{
+    // t in [0,1]
+    const colors = [
+      [13, 0, 68],
+      [74, 0, 120],
+      [181, 48, 90],
+      [247, 160, 60],
+      [252, 255, 164],
+    ];
+    t = Math.max(0, Math.min(1, t));
+    const idx = t * (colors.length - 1);
+    const i = Math.floor(idx);
+    const f = idx - i;
+    const c0 = colors[Math.min(i, colors.length - 1)];
+    const c1 = colors[Math.min(i + 1, colors.length - 1)];
+    const r = Math.round(c0[0] + f * (c1[0] - c0[0]));
+    const g = Math.round(c0[1] + f * (c1[1] - c0[1]));
+    const b = Math.round(c0[2] + f * (c1[2] - c0[2]));
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }}
 
   function getColor(temp) {{
     if (temp >= 30) return '#ff3333';
@@ -246,48 +355,67 @@ def generate_playback():
     return '#6666ff';
   }}
 
+  function clearUncertainty() {{
+    uncRects.forEach(r => map.removeLayer(r));
+    uncRects = [];
+  }}
+
+  function drawUncertainty(frameIdx) {{
+    clearUncertainty();
+    if (!showUnc || frameIdx < 0 || frameIdx >= frames.length) return;
+
+    const frame = frames[frameIdx];
+    const halfLat = gridStep / 2;
+    const halfLng = gridStep / 2;
+
+    for (let i = 0; i < cells.length; i++) {{
+      const c = cells[i];
+      const v = frame[i];
+      const bounds = [
+        [c.lat - halfLat, c.lng - halfLng],
+        [c.lat + halfLat, c.lng + halfLng],
+      ];
+      const rect = L.rectangle(bounds, {{
+        color: 'transparent',
+        fillColor: infernoColor(v),
+        fillOpacity: 0.45,
+        weight: 0,
+      }}).addTo(map);
+      uncRects.push(rect);
+    }}
+  }}
+
   function showPoint(idx) {{
     if (idx < 0 || idx >= totalPoints) return;
-
     const p = points[idx];
     currentIdx = idx;
 
-    // Create marker
     const color = getColor(p.temp);
     const marker = L.circleMarker([p.lat, p.lng], {{
-      radius: 7,
-      color: color,
-      fillColor: color,
-      fillOpacity: 0.8,
-      weight: 1.5,
+      radius: 7, color: color, fillColor: color,
+      fillOpacity: 0.85, weight: 1.5,
     }}).addTo(map);
 
     marker.bindPopup(
       '<div style="font-family:JetBrains Mono,monospace;font-size:12px;">' +
-      '<b>' + p.temp + '°C</b><br>' +
-      p.lat + ', ' + p.lng + '<br>' +
-      '<span style="color:#888">' + p.method + '</span></div>'
+      '<b>' + p.temp + '°C</b><br>' + p.lat + ', ' + p.lng +
+      '<br><span style="color:#888">' + p.method + '</span></div>'
     );
-
     markers.push(marker);
 
-    // Check if this is the new best
     if (p.temp > bestTemp) {{
       bestTemp = p.temp;
-      // Remove old best ring
       if (bestMarker) map.removeLayer(bestMarker);
-      // Add gold ring around best
       bestMarker = L.circleMarker([p.lat, p.lng], {{
-        radius: 14,
-        color: '#ffcc00',
-        fillColor: 'transparent',
-        fillOpacity: 0,
-        weight: 2.5,
-        dashArray: '4 4',
+        radius: 14, color: '#ffcc00', fillColor: 'transparent',
+        fillOpacity: 0, weight: 2.5, dashArray: '4 4',
       }}).addTo(map);
     }}
 
-    // Update stats
+    // Update uncertainty overlay
+    drawUncertainty(idx);
+
+    // Stats
     document.getElementById('s-iter').textContent = idx + 1;
     document.getElementById('s-best').textContent = bestTemp.toFixed(1) + '°C';
     document.getElementById('s-cur').textContent = p.temp + '°C';
@@ -325,15 +453,12 @@ def generate_playback():
     playing = false;
     document.getElementById('btn-play').textContent = '▶ Play';
     document.getElementById('btn-play').classList.remove('active');
-
-    // Remove all markers
     markers.forEach(m => map.removeLayer(m));
     markers = [];
     if (bestMarker) {{ map.removeLayer(bestMarker); bestMarker = null; }}
-
+    clearUncertainty();
     currentIdx = -1;
     bestTemp = -Infinity;
-
     document.getElementById('s-iter').textContent = '0';
     document.getElementById('s-best').textContent = '—';
     document.getElementById('s-cur').textContent = '—';
@@ -344,16 +469,13 @@ def generate_playback():
 
   function seekTo(idx) {{
     idx = parseInt(idx);
-    // Reset and replay up to idx
     markers.forEach(m => map.removeLayer(m));
     markers = [];
     if (bestMarker) {{ map.removeLayer(bestMarker); bestMarker = null; }}
+    clearUncertainty();
     currentIdx = -1;
     bestTemp = -Infinity;
-
-    for (let i = 0; i <= idx; i++) {{
-      showPoint(i);
-    }}
+    for (let i = 0; i <= idx; i++) showPoint(i);
   }}
 
   function updateSpeed() {{
@@ -371,6 +493,32 @@ def generate_playback():
         showPoint(currentIdx + 1);
       }}, speed);
     }}
+  }}
+
+  function toggleUncertainty() {{
+    showUnc = !showUnc;
+    const btn = document.getElementById('btn-unc');
+    const legend = document.getElementById('legend');
+    if (showUnc) {{
+      btn.textContent = 'σ On';
+      btn.classList.add('on');
+      legend.classList.add('visible');
+      if (currentIdx >= 0) drawUncertainty(currentIdx);
+    }} else {{
+      btn.textContent = 'σ Off';
+      btn.classList.remove('on');
+      legend.classList.remove('visible');
+      clearUncertainty();
+    }}
+  }}
+
+  function stepForward() {{
+    if (currentIdx < totalPoints - 1) seekTo(currentIdx + 1);
+  }}
+
+  function stepBack() {{
+    if (currentIdx > 0) seekTo(currentIdx - 1);
+    else if (currentIdx <= 0) resetPlayback();
   }}
 </script>
 </body>
