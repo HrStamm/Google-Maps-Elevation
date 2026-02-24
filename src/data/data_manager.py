@@ -34,6 +34,14 @@ def save_result(lat, lng, temp, search_method):
         
         writer.writerow([timestamp, lat, lng, temp, search_method])
 
+    # Update in-memory cache directly without reading file
+    global _INTERNAL_CACHE
+    if _INTERNAL_CACHE is not None:
+        key = (round(lat, 4), round(lng, 4))
+        _INTERNAL_CACHE[key] = float(temp)
+
+
+_INTERNAL_CACHE = None
 
 def load_results():
     """
@@ -52,15 +60,22 @@ def load_results():
 def get_cached_result(lat, lng, tolerance=0.0001):
     """
     Checks if a result for the given coordinates already exists in the cache.
-    tolerance: how close the coordinates must be to be considered a match.
+    Uses an in-memory cache to avoid disk reads for every single API call.
     """
-    results = load_results()
-    for row in results:
-        try:
-            r_lat = float(row['lat'])
-            r_lng = float(row['lng'])
-            if abs(r_lat - lat) < tolerance and abs(r_lng - lng) < tolerance:
-                return float(row['temp'])
-        except (ValueError, KeyError):
-            continue
-    return None
+    global _INTERNAL_CACHE
+    if _INTERNAL_CACHE is None:
+        _INTERNAL_CACHE = {}
+        # Load exactly once per process
+        results = load_results()
+        for row in results:
+            try:
+                r_lat = float(row['lat'])
+                r_lng = float(row['lng'])
+                # Using 4 decimal places for hashing close matches
+                key = (round(r_lat, 4), round(r_lng, 4))
+                _INTERNAL_CACHE[key] = float(row['temp'])
+            except (ValueError, KeyError):
+                continue
+
+    q_key = (round(lat, 4), round(lng, 4))
+    return _INTERNAL_CACHE.get(q_key)

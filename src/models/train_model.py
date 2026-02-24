@@ -9,8 +9,14 @@ exploitation using grid search to optimize the acquisition function.
 import numpy as np
 import yaml
 import os
-from src.data.weather_api import fetch_temperature
+import sys
 
+# Ensure Python can find the 'src' module when running this script directly
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
+
+from src.data.weather_api import fetch_temperature
 
 class BayesianOptimizationSearch:
     """
@@ -140,7 +146,6 @@ class BayesianOptimizationSearch:
         # Compute kernel matrices
         K = self._rbf_kernel(X_obs, X_obs)
         K_star = self._rbf_kernel(X_obs, X_new)
-        K_star_star = self._rbf_kernel(X_new, X_new)
         
         # Add noise to diagonal of K
         K_noisy = K + self.noise * np.eye(len(X_obs))
@@ -150,9 +155,11 @@ class BayesianOptimizationSearch:
             K_inv_y = np.linalg.solve(K_noisy, y_normalized)
             mean = K_star.T @ K_inv_y
             
-            # Compute variance: k_star_star - k_star^T * K^-1 * k_star
+            # Compute variance
+            # Only need the diagonal of K_star_star, which is always self.kernel_variance
+            K_star_star_diag = np.full(len(X_new), self.kernel_variance)
             K_inv_k_star = np.linalg.solve(K_noisy, K_star)
-            variance = np.diag(K_star_star) - np.sum(K_star * K_inv_k_star, axis=0)
+            variance = K_star_star_diag - np.sum(K_star * K_inv_k_star, axis=0)
             variance = np.maximum(variance, 1e-10)  # Ensure non-negative
             std = np.sqrt(variance)
             
@@ -277,7 +284,7 @@ class BayesianOptimizationSearch:
             lat, lng = next_point
             
             # Query temperature
-            temp = fetch_temperature(lat, lng, search_method="bayesian_optimization", use_cache=False)
+            temp = fetch_temperature(lat, lng, search_method="bayesian_optimization", use_cache=True)
             
             if temp is not None:
                 # Store observation
@@ -361,5 +368,4 @@ def bayesian_optimization_search(n_iterations=50, config_path="config.yaml", see
 
 
 if __name__ == "__main__":
-    # Run Bayesian Optimization with default config
-    results = bayesian_optimization_search(n_iterations=20, seed=42)
+    results = bayesian_optimization_search(n_iterations=None, seed=42)

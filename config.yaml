@@ -6,12 +6,12 @@ lengthscale: 45.0           # Lengthscale for the RBF kernel (controls smoothnes
 noise: 0.1                  # Noise parameter for GP observations
 
 # UCB Acquisition Function
-kappa: 2.0                  # Exploration parameter (higher = more exploration)
+kappa: 1.5                  # Exploration parameter (higher = more exploration)
 
 # Search Parameters
 
-n_iterations: 20            # Number of allowed guesses/iterations
-grid_resolution: 20         # Grid points per dimension (x*x = ? points)
+n_iterations: 50            # Number of allowed guesses/iterations
+grid_resolution: 180        # Grid points per dimension (x*x = ? points)
 
 
 # Search Space Bounds

@@ -18,6 +18,9 @@ def fetch_temperature(lat, lng, search_method="unknown", use_cache=True, retries
         cached_temp = get_cached_result(lat, lng)
         if cached_temp is not None:
             print(f"Cache hit for ({lat}, {lng}): {cached_temp}°C")
+            # Automatically save the cache hit back to the log with a new timestamp
+            # so the visualizer knows this point was "visited" in the current run sequence.
+            save_result(lat, lng, cached_temp, search_method)
             return cached_temp
         
     # 2. If not in cache, fetch from API

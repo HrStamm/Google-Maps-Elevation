@@ -3,30 +3,23 @@ import numpy as np
 import os
 import webbrowser
 import json
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
+import sys
+
+# Make sure we can import src
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(PROJECT_ROOT)
+from src.models.train_model import BayesianOptimizationSearch
 
 # ==============================================================================
 # BO Playback with Dynamic Overlays
 # Replays the optimization AND allows toggling between 
 # Temperature (μ), Uncertainty (σ), and Acquisition overlays.
 # ==============================================================================
-
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DATA_FILE = os.path.join(PROJECT_ROOT, "src", "data", "results.csv")
 OUTPUT_FILE = os.path.join(PROJECT_ROOT, "reports", "playback.html")
 
 TOTAL_BUDGET = 20
 GRID_STEP = 2  # Finer grid for smoother heatmap
-
-# ==============================================================================
-# GP Model Parameters (Tweak these here)
-# ==============================================================================
-GP_LENGTH_SCALE = 80.0
-GP_LENGTH_SCALE_BOUNDS = (30.0, 500.0)
-GP_ALPHA = 0.5
-GP_KAPPA = 2.5  # Controls exploration in Acquisition (UCB)
-
 
 def compute_gp_frames(df):
     """Pre-compute μ, σ, and Acquisition grids for every iteration."""
@@ -43,17 +36,31 @@ def compute_gp_frames(df):
     raw_mu = []
     raw_sigma = []
     raw_acq = []
+    
+    config_path = os.path.join(PROJECT_ROOT, "config.yaml")
 
     for step in range(1, len(df) + 1):
-        X = df[["lat", "lng"]].values[:step]
-        y = df["temp"].values[:step]
+        bo = BayesianOptimizationSearch(config_path=config_path)
+        sub_df = df.iloc[:step]
+        
+        # Populate BO model manually with observed data
+        bo.X_observed = [(row["lat"], row["lng"]) for _, row in sub_df.iterrows()]
+        bo.y_observed = sub_df["temp"].tolist()
+        
+        # We must call _update_normalization so the temperature bounds are correct
+        bo._update_normalization()
 
-        kernel = C(1.0, (1e-3, 1e3)) * RBF(length_scale=GP_LENGTH_SCALE, length_scale_bounds=GP_LENGTH_SCALE_BOUNDS)
-        gp = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=5, alpha=GP_ALPHA, normalize_y=True)
-        gp.fit(X, y)
+        # Predict normalized mean and std using the model's built-in functions
+        mu_norm, sigma = bo._predict(grid_points)
+        acq = bo._ucb_acquisition(grid_points)
 
-        mu, sigma = gp.predict(grid_points, return_std=True)
-        acq = mu + GP_KAPPA * sigma  # UCB
+        # De-normalize mu for proper reading on the map
+        if bo.temp_min is not None and bo.temp_max is not None and bo.temp_min != bo.temp_max:
+            mu = mu_norm * (bo.temp_max - bo.temp_min) + bo.temp_min
+        elif bo.temp_min is not None and bo.temp_max is not None and bo.temp_min == bo.temp_max:
+            mu = np.full_like(mu_norm, float(bo.temp_min))
+        else:
+            mu = mu_norm
 
         raw_mu.append(mu)
         raw_sigma.append(sigma)
@@ -88,6 +95,19 @@ def generate_playback():
         return None
 
     df = pd.read_csv(DATA_FILE)
+    
+    # Filter to only the latest execution run
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    time_diff = df['timestamp'].diff()
+    # A gap of more than 5 seconds indicates a new run (prevents quick back-to-back runs from stacking)
+    new_session_mask = time_diff > pd.Timedelta(seconds=5)
+    df['session_id'] = new_session_mask.cumsum()
+    
+    last_session_id = df['session_id'].iloc[-1]
+    df = df[df['session_id'] == last_session_id].copy()
+    
+    print(f"Filtered to the latest run ({len(df)} points).")
+
     if len(df) < 2:
         print("Error: Need at least 2 data points.")
         return None
@@ -99,7 +119,7 @@ def generate_playback():
             "lng": round(row["lng"], 4),
             "temp": row["temp"],
             "method": row["search_method"],
-            "ts": row["timestamp"],
+            "ts": str(row["timestamp"]),
         })
 
     print("Computing GP frames...")
