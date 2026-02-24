@@ -9,7 +9,7 @@ noise: 0.1                  # Noise parameter for GP observations
 kappa: 2.0                  # Exploration parameter (higher = more exploration)
 
 # Search Parameters
-n_iterations: 50            # Number of allowed guesses/iterations
+n_iterations: 20            # Number of allowed guesses/iterations
 grid_resolution: 20         # Grid points per dimension (x*x = ? points)
 
 # Search Space Bounds
