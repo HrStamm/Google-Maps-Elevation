@@ -39,8 +39,8 @@ The goal is to use **Bayesian Optimization (BO)** with a **Gaussian Process (GP)
 
 ### 4. Visualization & Reporting (The Lead)
 *Focus: Communicating the model's "beliefs" and results.*
-- [ ] **Global Temperature Heatmaps**: Visualize the GP's predicted temperature distribution across the globe.
-- [ ] **Uncertainty Maps**: Plot the model's variance (where it is least confident and needs more data).
+- [x] **Global Temperature Heatmaps**: Visualize the GP's predicted temperature distribution across the globe.
+- [x] **Uncertainty Maps**: Plot the model's variance (where it is least confident and needs more data).
 - [ ] **Acquisition Surface**: Visualize which areas the model wants to explore next based on the acquisition function.
 - [ ] **Final Comparisons**: Create the final plots comparing BO, Random Search, and Manual Search.
 
